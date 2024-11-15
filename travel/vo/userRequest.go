@@ -15,3 +15,17 @@ type IdentifyCode struct {
 	Iv            string `json:"iv" binding:"required"`
 	SessionKey    string `json:"session_id" binding:"required"`
 }
+
+type UpdateUserRequest struct {
+	Telephone string `json:"telephone"`
+	NickName  string `json:"nick_name"`
+	Motto     string `json:"motto"`
+	Gender    int    `json:"gender"` //0表示男、1表示女
+}
+
+type ShowUserRequest struct {
+	Telephone string `json:"telephone"`
+	NickName  string `json:"nick_name"`
+	Motto     string `json:"motto"`
+	Gender    int    `json:"gender"` //0表示男、1表示女
+}

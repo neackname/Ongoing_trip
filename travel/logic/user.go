@@ -1,73 +1,45 @@
 package logic
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"travel/TravelModel"
+	"fmt"
+	"github.com/spf13/viper"
+	"io/ioutil"
+	"net/http"
+	"travel/vo"
 )
 
-// DecryptUserInfo @title DecryptUserInfo
-// @description	解析密文，获取详细的用户信息
-// @auth	Snactop		2023-11-13	19:27
-// @param	userInfo *TravelModel.TraUser, sessionKey, encryptedData, iv string
-// @return	error	传出错误信息
-func DecryptUserInfo(userInfo *TravelModel.TraUser, sessionKey, encryptedData, iv string) error {
-	sessionKeyBytes, err := base64.StdEncoding.DecodeString(sessionKey)
-	if err != nil {
-		return err
+// 使用code获取sessionkey和openID的函数
+func GetIdentify(wxCode string) (key, ID string, err error) {
+	//向系统获取appID、appSecret
+	var appID = viper.GetString("wx.appID")
+	var appSecret = viper.GetString("wx.appSecret")
+	if appID == "" || appSecret == "" {
+		errMsg := "服务器系统错误"
+		return "", "", errors.New(errMsg)
 	}
 
-	encryptedDataBytes, err := base64.StdEncoding.DecodeString(encryptedData)
-	if err != nil {
-		return err
+	//向微信API发送请求，获取用户openID
+	url := fmt.Sprintf("https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code", appID, appSecret, wxCode)
+	resp, err1 := http.Get(url)
+	if err1 != nil {
+		errMsg := "系统错误"
+		return "", "", errors.New(errMsg)
+	}
+	defer resp.Body.Close()
+
+	body, err2 := ioutil.ReadAll(resp.Body)
+	if err2 != nil {
+		errMsg := "系统错误"
+		return "", "", errors.New(errMsg)
 	}
 
-	ivBytes, err := base64.StdEncoding.DecodeString(iv)
-	if err != nil {
-		return err
+	var sessionResponse vo.Code2SessionResponse
+	if err := json.Unmarshal(body, &sessionResponse); err != nil {
+		errMsg := "系统错误"
+		return "", "", errors.New(errMsg)
 	}
 
-	block, err := aes.NewCipher(sessionKeyBytes)
-	if err != nil {
-		return err
-	}
-
-	if len(encryptedDataBytes)%aes.BlockSize != 0 {
-		return errors.New("encryptedData is not a multiple of the block size")
-	}
-
-	mode := cipher.NewCBCDecrypter(block, ivBytes)
-	decrypted := make([]byte, len(encryptedDataBytes))
-	mode.CryptBlocks(decrypted, encryptedDataBytes)
-
-	decrypted = pkcs7Unpad(decrypted)
-	if decrypted == nil {
-		return errors.New("decryption failed")
-	}
-
-	if err := json.Unmarshal(decrypted, &userInfo); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// pkcs7Unpad @title pkcs7Unpad
-// @description  PKCS7解码函数
-// @auth	Snactop		2023-11-13	19:27
-// @param	data []byte
-// @return	[]byte
-func pkcs7Unpad(data []byte) []byte {
-	length := len(data)
-	if length == 0 {
-		return nil
-	}
-	unpadding := int(data[length-1])
-	if unpadding > length {
-		return nil
-	}
-	return data[:(length - unpadding)]
+	return sessionResponse.SessionKey, sessionResponse.OpenID, nil
 }

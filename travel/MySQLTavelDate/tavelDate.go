@@ -36,7 +36,10 @@ func InitDB() {
 	if err != nil {
 		panic("fail to connect database, err:" + err.Error() + host)
 	}
-	db.AutoMigrate(&TravelModel.TraUser{})
+	if err := db.AutoMigrate(&TravelModel.TraUser{}, &TravelModel.TraUserFoot{}, &TravelModel.TraUserFootStart{}, TravelModel.TraUserPostStart{}); err != nil {
+		panic(err)
+		return
+	}
 
 	DB = db
 }
