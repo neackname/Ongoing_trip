@@ -1,3 +1,9 @@
+# 随心游小程序文档
+
+1. [需求文档](#随心游小程序需求文档)
+
+2. [接口文档](#随心游接口文档)
+
 # 随心游小程序需求文档
 ## 1 引言
 
@@ -192,3 +198,405 @@
 ### 5.4 推荐系统
 
 推荐系统要求实现输入一组用户的文章历史浏览信息、用户地址，推荐相关的文章；输入出发地、目的地、性格、心情等一组数据，推荐相关地点和规划最优路径
+
+********************************************************
+
+
+# 随心游小程序文档
+[接口文档](#随心游接口文档)
+
+## 随心游接口文档
+
+## 1.全局配置
+**1.1 域名**: https://leonandor.com/travel
+
+**1.2 默认请求格式**: application/json（JSON 格式）
+
+&emsp;&emsp; 说明: 大部分接口使用 JSON 格式进行数据传输，除非单独说明其他格式。
+
+**1.3 返回格式**: application/json（JSON 格式）
+
+**1.4 特殊表单提交格式**: application/x-www-form-urlencoded（URL编码格式）
+
+&emsp;&emsp;说明: 部分接口可能使用 URL 编码格式进行数据传输，具体接口会在文档中单独标明。
+
+**1.5 认证**:
+
+&emsp;&emsp;登录接口无需认证。
+
+&emsp;&emsp;/travel/post/* 接口需要使用 Authorization 头部传递 Token。
+
+## 2.公共中间件
+
+**CORS 中间件**: 允许跨域请求。
+
+**Recovery 中间件**: 捕获并处理运行时错误，防止崩溃。
+
+
+## 3. 接口详情
+
+### 一、用户接口
+
+**3.1.1 登录：**
+
+接口地址: /login
+
+请求方式：POST
+
+**请求格式**：application/x-www-form-urlencoded
+
+是否需要认证: 否
+
+参数说明：
+
+| 参数名      | 类型   | 必填 | 描述        |
+|----------|--------|----|-----------|
+| code     | string | 是  | 微信临时身份凭证，微信授权码 |
+
+请求示例:
+
+1. HTTP 请求头：
+```http
+    Content-Type: application/x-www-form-urlencoded
+```
+
+2. 请求体示例：
+```http
+  code=1234567890abcdef
+```
+
+3. 响应示例:
+```json
+{
+  "code": 200,
+  "token": "your_token_value",
+  "SessionKey": "your_session_key_value",
+  "msg": "登录成功"
+}
+```
+
+4.  服务端处理示例（Gin框架）
+
+```
+func Login(ctx *gin.Context) {
+	// 获取微信授权码
+	code := ctx.PostForm("code")
+
+	if code == "" {
+		ctx.JSON(400, gin.H{
+            "code": 400, 
+            "msg": "参数错误"
+        })
+		return
+	}
+
+	// 模拟验证和处理逻辑
+	ctx.JSON(200, gin.H{
+		"code": 200,
+		"token": "your_token_value",
+		"SessionKey": "your_session_key_value",
+		"msg": "登录成功"
+	})
+}
+```
+
+5. 返回示例
+
+成功响应：
+```json 
+{
+  "code": 200,
+  "token": "your_token_value",
+  "SessionKey": "your_session_key_value",
+  "msg": "登录成功"
+}
+```
+
+失败响应：
+```json
+{
+  "code": 400, 
+  "msg": "参数错误"
+}
+
+```
+
+**3.1.2 微信授权询问接口：**(未写)
+    http://leonandor.com/travel/authorization
+
+**3.1.3 获取用户信息**
+
+接口地址: /user/info
+
+接口描述： 向后端获取用户信息
+
+请求方式：GET
+
+是否需要认证: 是
+
+参数说明：无
+
+请求示例：
+1. HTTP 请求头：
+```http
+    fetch('https://leonandor.com/GetUserInfo', {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer YOUR_TOKEN_HERE'
+                }
+            })
+```
+2. 返回示例：
+```json
+  {
+  "code": 200, 
+  "information": "这里是用户信息", 
+  "msg": "获取用户信息成功"
+}
+```
+**3.1.4 通过微信获取用户敏感信息（暂时没用，不建议用）：**
+
+接口地址: /GetUserProfile
+
+接口描述： 向微信获取用户敏感信息的密文
+
+请求方式：POST
+
+是否需要认证: 是
+
+参数说明：
+
+| 参数名            | 类型   | 必填 | 描述        |
+|----------------|--------|----|-----------|
+| encrypted_data | string | 是  |加密的用户数据，通常由小程序端提供  |
+| iv             | string | 是  |加密算法的初始向量，通常由小程序端提供  |
+| session_id     | string | 是  |会话标识符，用于校验用户登录状态与身份信息|
+
+请求示例：
+1. HTTP 请求头：
+```http
+    Content-Type: application/json
+    Authorization: Bearer <token>
+```
+
+2. 请求体示例：
+```json
+{
+    "encrypted_data": "CiyLU1Aw2KjvrjMdj8K...",
+    "iv": "r7BXXKkLb8qrSNn05n0qiA==",
+    "session_id": "abc123xyz456"
+}
+```
+3. 返回示例:
+
+成功响应：
+```json
+{
+  "code": 200, 
+  "plainText": "plainText  注意：这里是一段解析明文", 
+  "msg": "操作成功"
+}
+
+```
+
+失败响应：
+```json
+{
+  "code": 500, 
+  "msg": "服务器错误"
+}
+```
+**3.1.5 更新用户信息**
+
+接口地址: /user/update
+
+接口描述： 向后端更新用户信息
+
+请求方式：PATCH
+
+是否需要认证: 是
+
+参数说明：
+
+| 参数名       | 类型   | 必填 | 描述     |
+|-----------|--------|----|--------|
+| telephone | string | 否  | 用户电话号码 |
+| nick_name | string | 否  | 用户名    |
+| motto     | string | 否  | 个人签名   |
+| gender    | string | 否  | 性别     |
+注：所有项为非必填项，但是不能一个不填
+
+**3.1.6 更新用户信息**
+
+接口地址: /user/postCreate
+
+接口描述： 向后端获取用户创建的文章
+
+请求方式：GET 
+
+是否需要认证: 是
+
+参数说明：无
+
+### 二、文章接口
+
+**3.2.1 创建文章：**
+    http://leonandor.com/travel/post/create
+
+接口地址: /post/create
+
+请求方式：POST
+
+是否需要认证: 是
+
+参数说明：
+
+| 参数名      | 类型   | 必填 | 描述        |
+|----------|--------|----|-----------|
+| title    | string | 是  | 要创建的文章的题目 |
+| head_img | string | 是  | 文章的图片     |
+| content  | string | 是  | 文章内容      |
+
+请求示例：
+1. HTTP 请求头：
+```http
+    Content-Type: application/json
+    Authorization: Bearer <token>
+```
+
+2. 请求体示例：
+```json
+{
+    "title": "文章题目",
+    "head_img": "https://stuecc.stu.edu.cn/images/20230228184558.png",
+    "content": "这是文章内容"
+}
+```
+3. 返回示例:
+
+成功响应：
+```json
+{
+  "code": 200, 
+  "msg": "文章创建成功"
+}
+
+```
+
+**3.2.2 更新文章：**
+    http://leonandor.com/travel/post/update/:id
+
+接口地址: /update/:id
+
+请求方式：PATCH
+
+是否需要认证: 是
+
+参数说明：
+
+| 参数名      | 类型     | 必填 | 描述                       |
+|----------|--------|----|--------------------------|
+| id       | int    | 是  | 文章的唯一标识符（路径参数，无需放到请求体里面） |
+| title    | string | 是  | 要创建的文章的题目                |
+| head_img | string | 是  | 文章的图片                    |
+| content  | string | 是  | 文章内容                     |
+
+请求示例
+ 1. html（仅为示例）
+```html 
+fetch(`https://leonandor.com/travel/post/update/123456789`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer YOUR_TOKEN_HERE'
+                },
+                body: JSON.stringify({
+                    title: title,
+                    head_img: headImg,
+                    content: content
+                })
+            })
+```
+
+**3.2.3 展示文章详情：**
+    http://leonandor.com/travel/post/show/:id
+
+接口地址: /post/show/:id
+
+请求方式：GET
+
+是否需要认证: 是
+
+**3.2.4 删除文章：**
+    http://leonandor.com/travel/post/delete/:id
+
+接口地址: /post/delete/:id
+
+请求方式：DELETE
+
+是否需要认证: 是
+
+**3.2.5 文章列表：**
+    http://leonandor.com/travel/post/page/list
+
+接口地址: /post/page/list
+
+请求方式：GET
+
+是否需要认证: 是
+
+### 三、用户收藏
+**3.3.1 添加用户收藏：**
+http://leonandor.com/user/start/add/:id
+
+接口地址: /user/start/add/:id
+
+请求方式：POST
+
+是否需要认证: 是
+
+参数：无
+
+**3.3.2 删除用户收藏：**
+http://leonandor.com/user/start/remove/:id
+
+接口地址: /user/start/remove/:id
+
+请求方式：DELETE
+
+是否需要认证: 是
+
+参数：无
+
+**3.3.2 用户收藏列表：**
+http://leonandor.com/user/start/list
+
+接口地址: /user/start/list
+
+请求方式：GET
+
+是否需要认证: 是
+
+参数：无
+
+### 三、搜索接口
+
+**文章搜索：** http://leonandor.com/travel/post/search
+
+接口地址: /post/search
+
+请求方式：GET
+
+是否需要认证: 是
+
+**用户搜索：**（未写）
+
+### 四、用户对话接口
+
+**用户私聊对话：**
+    http://leonandor.com/travel/user/chat
+
+### 五、推荐接口
+
+**用户文章推荐：**
+    http://leonandor.com/travel/post/recommand
