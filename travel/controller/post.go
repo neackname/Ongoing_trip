@@ -2,133 +2,118 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"net/http"
 	"strconv"
-	"travel/MySQLTavelDate"
 	"travel/TravelModel"
+	"travel/logic"
 	"travel/vo"
 )
 
-type IPostController interface {
-	RestController
-	PageList(ctx *gin.Context)
-}
-
-type PostController struct {
-	DB *gorm.DB
-}
-
-// @title	NewIPostController
-// @description	control层创建文章接口
-// @auth	Snactop	2023-12-1	19:53
-// @param     void			没有入参
-// @return	void  没有回参
-func NewIPostController() IPostController {
-	db := MySQLTavelDate.GetDB()
-	db.AutoMigrate(&TravelModel.Post{})
-
-	return PostController{DB: db}
-}
-
-// @title	Create
-// @description	control层创建帖子
-// @auth	Snactop	2023-12-1	19:53
-// @param	ctx *gin.Context	传入一个上下文
-// @return	void 无返回值
-func (po PostController) Create(ctx *gin.Context) {
-	//数据验证
-	var p vo.PostRequest
-	if err := ctx.ShouldBindJSON(&p); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "数据验证失败"})
-		return
-	}
-
-	//创建文章
-	user, _ := ctx.Get("authInfo")
-	post := TravelModel.Post{
-		UserId:  user.(TravelModel.AuthInformation).ID,
-		Title:   p.Title,
-		HeadImg: p.HeadImg,
-		Content: p.Content,
-	}
-
-	if err := po.DB.Create(&post); err != nil {
-		panic(err)
-		return
-	}
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "文章创建成功"})
-}
-
-// @title	Update
-// @description	control层更新帖子，此接口只适合放在用户创建的文章当中
-// @auth	Snactop	2023-12-1	19:53
-// @param	ctx *gin.Context	传入一个上下文
-// @return	void     无返回值
-func (po PostController) Update(ctx *gin.Context) {
-	//TODO 数据验证
+func PostCreate(ctx *gin.Context) {
+	//参数验证
 	var postR vo.PostRequest
-	if err := ctx.ShouldBindJSON(&postR); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "数据验证失败"})
-		return
-	}
-	//TODO 在path中寻找文章ID
-	id, _ := strconv.Atoi(ctx.Param("id"))
-
-	//TODO 在数据库中根据ID判断文章是否存在
-	var post TravelModel.Post
-	if err := po.DB.First(&post, id).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "文章不存在"})
+	if err := ctx.ShouldBind(&postR); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "参数错误"})
 		return
 	}
 
-	//TODO 重要：  判断删除者是否为文章作者
-	user, exit := ctx.Get("authInfo")
+	//检查用户权限
+	authInfo, exit := ctx.Get("authInfo")
 	if !exit {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "无更改权限"})
-		return
-	}
-	if user.(TravelModel.AuthInformation).ID != post.UserId {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "文章不属于您， 操作非法"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "登录已过期，请重新登录"})
 		return
 	}
 
-	//TODO 更新文章
-	if err := po.DB.Model(&post).Updates(postR).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "文章更新失败"})
+	//逻辑层创建文章，返回文章ID
+	postID, err := logic.PostCreate(authInfo.(TravelModel.AuthInformation).ID, postR)
+
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "msg": "系统错误，文章创建失败"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "post": post, "msg": "更新成功"})
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "postID": postID, "msg": "文章创建成功"})
+	return
 }
 
-// @title	Show
-// @description	control层查找帖子
-// @auth	Snactop	2023-12-1	19:53
-// @param	ctx *gin.Context	传入一个上下文
-// @return	void   无返回值
-func (po PostController) Show(ctx *gin.Context) {
+func PostUpdate(ctx *gin.Context) {
+	//参数验证
+	var postR vo.PostRequest
+	if err := ctx.ShouldBind(&postR); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "参数错误"})
+		return
+	}
 
+	//检查用户权限
+	authInfo, exit := ctx.Get("authInfo")
+	if !exit {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "登录已过期，请重新登录"})
+		return
+	}
+
+	//在path中寻找文章ID
+	postID := ctx.Param("id")
+
+	//用户修改文章信息
+	post, err := logic.PostUpdate(authInfo.(TravelModel.AuthInformation).ID, postID, postR)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "文章修改失败", "error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "文章信息修改成功", "post": post})
+	return
 }
 
-func (po PostController) Delete(ctx *gin.Context) {
+func PostShow(ctx *gin.Context) {
+	//在path中寻找文章ID
+	postID := ctx.Param("id")
+
+	//逻辑层查找商品信息
+	post, err := logic.GetPostInfo(postID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "用户权限错误", "error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "文章查询成功", "post": post})
+	return
 }
 
-// @title	PageList
-// @description	control层展示帖子列表
-// @auth	Snactop	2023-12-1	19:53
-// @param	ctx *gin.Context	传入一个上下文
-// @return	void  无返回值
-func (po PostController) PageList(ctx *gin.Context) {
+func PostDelete(ctx *gin.Context) {
+	// 处理商品的删除逻辑
+	//在path中寻找商品ID
+	postID := ctx.Param("id")
+
+	//检查用户权限
+	authInfo, exit := ctx.Get("authInfo")
+	if !exit {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "登录已过期，请重新登录"})
+		return
+	}
+
+	//逻辑层删除商品信息
+	if err := logic.PostDelete(authInfo.(TravelModel.AuthInformation).ID, postID); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "系统错误", "error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "删除文章成功，Delete Post Success"})
+}
+
+func PostPageList(ctx *gin.Context) {
+	// 处理获取商品列表的逻辑，通常需要分页和筛选
 	pageNum, _ := strconv.Atoi(ctx.DefaultQuery("pageNum", "1"))
 	pageList, _ := strconv.Atoi(ctx.DefaultQuery("pageList", "20"))
 
-	var posts []TravelModel.Post
-	po.DB.Order("created_at desc").Offset((pageNum - 1) * pageList).Limit(pageList).Find(&posts)
+	posts, total := logic.PageList(pageNum, pageList)
 
-	//前端渲染分页需要知道总数
-	var total int64
-	po.DB.Model(TravelModel.Post{}).Count(&total)
+	data := map[string]interface{}{
+		"msg":         "商品信息获取成功",
+		"commodities": posts,
+		"total":       total,
+	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "data": posts, "total": total})
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "date": data, "message": "删除文章成功，Delete Post Success"})
+	return
 }

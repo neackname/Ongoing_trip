@@ -7,7 +7,7 @@ import (
 
 func CORSMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		ctx.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:8081")
+		ctx.Writer.Header().Set("Access-Control-Allow-Origin", "*") //这里是域名
 		ctx.Writer.Header().Set("Access-Control-Max-Age", "80640")
 		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "*")
 		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "*")

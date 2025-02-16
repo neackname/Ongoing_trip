@@ -4,8 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
-	"travel/MySQLTavelDate"
+	"travel/TravelDate"
 	"travel/TravelModel"
+	"travel/pkg/jwt"
 )
 
 // @title	AuthMiddleware
@@ -26,7 +27,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 		tokenString = tokenString[7:]
 
-		token, claim, err := MySQLTavelDate.ParseToken(tokenString)
+		token, claim, err := jwt.ParseToken(tokenString)
 		if err != nil || !token.Valid {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"code": "401", "msg": "权限不足"})
 			ctx.Abort()
@@ -42,7 +43,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		db := MySQLTavelDate.GetDB()
+		db := TravelDate.GetDB()
 		if err := db.First(&user, userId).Error; err != nil {
 			ctx.JSON(http.StatusUnauthorized, gin.H{"code": "401", "msg": "权限不足"})
 			ctx.Abort()

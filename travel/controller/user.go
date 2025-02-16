@@ -4,19 +4,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"regexp"
-	"travel/MySQLTavelDate"
+	"travel/TravelDate"
 	"travel/TravelModel"
 	"travel/logic"
+	"travel/pkg/jwt"
+	"travel/pkg/snowflake"
 	"travel/vo"
 )
 
-// @title  Login
+// Login @title  Login
 // @description	调用方式：POST； 提交表单额方式：x-www-form-urlencoded；获取微信用户获取用户的openID和SessionKey以计入系统，
 // @auth	Snactop	2023-11-27	20:07
 // @param	ctx *gin.Context  传入一个上下文
 // @return	void	没有返回值
 func Login(ctx *gin.Context) {
-	db := MySQLTavelDate.GetDB()
+	db := TravelDate.GetDB()
 	wxCode := ctx.PostForm("code")
 
 	//参数验证
@@ -36,21 +38,28 @@ func Login(ctx *gin.Context) {
 	db.Where("  open_id  = ?", OpenID).First(&user)
 	if user.ID == 0 {
 		//用户未注册，为用户注册，创建用户信息
+		//TODO 生成用户ID
+		userId, err := snowflake.GetID()
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "系统繁忙，登录失败"})
+			return
+		}
+
 		userInfo := TravelModel.TraUser{
+			ID:         userId,
 			OpenID:     OpenID,
 			SessionKey: SessionKey,
 		}
 		db.Create(&userInfo)
-	}
-
-	//TODO 更新用户SessionKey
-	if err := db.Model(&user).Update("session_key", SessionKey).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "系统错误，session_key更新失败"})
-		return
+	} else { //更新用户SessionKey
+		if err := db.Model(&user).Update("session_key", SessionKey).Error; err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "系统错误，session_key更新失败"})
+			return
+		}
 	}
 
 	//发放token
-	token, err := MySQLTavelDate.ReleaseToken(user)
+	token, err := jwt.ReleaseToken(user)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "token发放错误"})
 		return
@@ -84,12 +93,12 @@ func GetUserProfile(ctx *gin.Context) {
 	return
 }
 
-// @title  UUpdate
+// @title  Update
 // @description	获取方式：POST；用户自行更改用户信息
 // @auth	Snactop	2024-9-20	15:13
 // @param	ctx *gin.Context  传入一个上下文
 // @return	void	没有返回值
-func UUpdate(ctx *gin.Context) {
+func Update(ctx *gin.Context) {
 	var userP vo.UpdateUserRequest
 	if err := ctx.ShouldBind(&userP); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "请求错误或数据格式错误"})
@@ -108,19 +117,9 @@ func UUpdate(ctx *gin.Context) {
 		return
 	}
 
-	//TODO 更改用户信息
-	//查找用户信息
-
-	db := MySQLTavelDate.GetDB()
-	user := TravelModel.TraUser{}
-	if err := db.Where("open_id = ?", authInfo.(TravelModel.AuthInformation).OpenID).First(&user); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "登录已过期，请重新登录"})
-		return
-	}
-
-	//更新用户数据
-	if err := db.Model(&user).Updates(userP).Error; err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "系统错误，用户信息更新失败"})
+	//更改用户信息
+	if err := logic.UpdateUserInformation(userP, authInfo.(TravelModel.AuthInformation).OpenID); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
 		return
 	}
 
@@ -128,12 +127,12 @@ func UUpdate(ctx *gin.Context) {
 	return
 }
 
-// @title  UserShow
+// @title  GetUserInformation
 // @description	获取方式：GET；展示用户信息用户信息
 // @auth	Snactop	2024-9-20	15:13
 // @param	ctx *gin.Context  传入一个上下文
 // @return	void	没有返回值
-func UserShow(ctx *gin.Context) {
+func GetUserInformation(ctx *gin.Context) {
 	//TODO 查找用户openID
 	authInfo, exit := ctx.Get("authInfo")
 	if !exit {
@@ -141,43 +140,121 @@ func UserShow(ctx *gin.Context) {
 		return
 	}
 
-	if authInfo.(TravelModel.AuthInformation).OpenID == "" {
+	OpenID := authInfo.(TravelModel.AuthInformation).OpenID
+	if OpenID == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "登录已过期，请重新登录"})
 		return
 	}
 
-	//TODO 查找用户信息
-	db := MySQLTavelDate.GetDB()
-	user := TravelModel.TraUser{}
-	if err := db.Where("open_id = ?", authInfo.(TravelModel.AuthInformation).OpenID).First(&user); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "登录已过期，请重新登录"})
-		return
+	//查找用户信息
+	user, err := logic.GetUserInformation(OpenID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": err.Error()})
 	}
 
-	userP := vo.ShowUserRequest{
-		Telephone: user.Telephone,
-		NickName:  user.NickName,
-		Motto:     user.Motto,
-		Gender:    user.Gender,
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "information": userP, "msg": "操作成功"})
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "information": user, "msg": "获取用户信息成功"})
 	return
 }
 
-// @title  FavoriteP
+// AddPostStart @title  AddPostStart
 // @description	获取方式：POST；用户收藏文章
 // @auth	Snactop	2024-9-20	15:13
 // @param	ctx *gin.Context  传入一个上下文
 // @return	void	没有返回值
-func FavoriteP(ctx *gin.Context) {
+func AddPostStart(ctx *gin.Context) {
 
-	//TODO 获取前端发送过来的文章ID
+	// 获取当前登录的用户ID（假设是通过JWT或Session获取的）
+	authInfo, exists := ctx.Get("authInfo")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "用户未登录"})
+		return
+	}
 
-	//TODO 获取用户ID（系统发放的ID）
+	// 获取文章ID
+	postID := ctx.Param("id") // 从URL中获取 /users/favorites/:id
+	if len(postID) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的文章ID"})
+		return
+	}
 
-	//TODO 将文章ID加入到用户文章收藏夹中
+	// 逻辑层收藏商品
+	code, err := logic.AddFavoritePost(authInfo.(TravelModel.AuthInformation).ID, postID)
+	if err != nil {
+		ctx.JSON(code, gin.H{"message": "收藏失败", "error": err.Error()})
+		return
+	}
 
+	ctx.JSON(code, gin.H{"message": "收藏成功"})
+	return
+
+}
+
+// RemovePostStart @title  RemovePostStart
+// @description	获取方式：GET；用户删除收藏文章
+// @auth	Snactop	2024-9-20	15:13
+// @param	ctx *gin.Context  传入一个上下文
+// @return	void	没有返回值
+func RemovePostStart(ctx *gin.Context) {
+	// 获取当前登录的用户ID
+	authInfo, exists := ctx.Get("authInfo")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "用户未登录"})
+		return
+	}
+
+	// 获取商品ID
+	postID := ctx.Param("id")
+	if len(postID) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "无效的商品ID"})
+		return
+	}
+
+	// 删除用户的收藏记录
+	code, err := logic.RemovePostStart(authInfo.(TravelModel.AuthInformation).ID, postID)
+	if err != nil {
+		ctx.JSON(code, gin.H{"message": "取消收藏失败", "error": err.Error()})
+		return
+	}
+
+	ctx.JSON(code, gin.H{"message": "取消收藏成功"})
+	return
+}
+
+func GetPostStart(ctx *gin.Context) {
+	// 获取当前登录的用户ID
+	authInfo, exists := ctx.Get("authInfo")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "用户未登录"})
+		return
+	}
+
+	//获取用户收藏列表
+	posts, err := logic.GetUserPostStart(authInfo.(TravelModel.AuthInformation).ID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "获取收藏失败", "err": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": posts, "msg": "获取用户收藏列表成功", "err": nil})
+	return
+}
+
+func GetUserCreatedPosts(ctx *gin.Context) {
+	// 获取当前登录的用户ID
+	authInfo, exists := ctx.Get("authInfo")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "用户未登录"})
+		return
+	}
+
+	posts, err := logic.GetUserCreatedPosts(authInfo.(TravelModel.AuthInformation).ID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "msg": "获取收藏失败", "err": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": posts, "msg": "获取用户创建商品列表成功", "err": nil})
+	return
 }
 
 // @title  Favorite

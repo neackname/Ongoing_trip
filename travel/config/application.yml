@@ -5,7 +5,7 @@ mysql:
   port: 3306
   root: root
   password: hwqq1220
-  database: myweb
+  database: travel_database
   loc: Asia/Shanghai
 
 wx:

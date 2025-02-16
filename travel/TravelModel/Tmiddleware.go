@@ -1,7 +1,7 @@
 package TravelModel
 
 type AuthInformation struct {
-	ID         uint
+	ID         uint64
 	OpenID     string
 	SessionKey string
 }
