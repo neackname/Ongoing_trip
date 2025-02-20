@@ -208,7 +208,7 @@
 ## 随心游接口文档
 
 ## 1.全局配置
-**1.1 域名**: https://leonandor.com/travel
+**1.1 域名**: https://api.leonandor.com:8081/travel
 
 **1.2 默认请求格式**: application/json（JSON 格式）
 
@@ -322,7 +322,7 @@ func Login(ctx *gin.Context) {
 ```
 
 **3.1.2 微信授权询问接口：**(未写)
-    http://leonandor.com/travel/authorization
+    http://api.leonandor.com:8081/travel/authorization
 
 **3.1.3 获取用户信息**
 
@@ -441,7 +441,7 @@ func Login(ctx *gin.Context) {
 ### 二、文章接口
 
 **3.2.1 创建文章：**
-    http://leonandor.com/travel/post/create
+    http://api.leonandor.com:8081/travel/post/create
 
 接口地址: /post/create
 
@@ -484,7 +484,7 @@ func Login(ctx *gin.Context) {
 ```
 
 **3.2.2 更新文章：**
-    http://leonandor.com/travel/post/update/:id
+    http://api.leonandor.com:8081/travel/post/update/:id
 
 接口地址: /update/:id
 
@@ -519,7 +519,7 @@ fetch(`https://leonandor.com/travel/post/update/123456789`, {
 ```
 
 **3.2.3 展示文章详情：**
-    http://leonandor.com/travel/post/show/:id
+    http://api.leonandor.com:8081/travel/post/show/:id
 
 接口地址: /post/show/:id
 
@@ -528,7 +528,7 @@ fetch(`https://leonandor.com/travel/post/update/123456789`, {
 是否需要认证: 是
 
 **3.2.4 删除文章：**
-    http://leonandor.com/travel/post/delete/:id
+    http://api.leonandor.com:8081/travel/post/delete/:id
 
 接口地址: /post/delete/:id
 
@@ -537,7 +537,7 @@ fetch(`https://leonandor.com/travel/post/update/123456789`, {
 是否需要认证: 是
 
 **3.2.5 文章列表：**
-    http://leonandor.com/travel/post/page/list
+    http://api.leonandor.com:8081/travel/post/page/list
 
 接口地址: /post/page/list
 
@@ -547,7 +547,7 @@ fetch(`https://leonandor.com/travel/post/update/123456789`, {
 
 ### 三、用户收藏
 **3.3.1 添加用户收藏：**
-http://leonandor.com/user/start/add/:id
+http://api.leonandor.com:8081/user/start/add/:id
 
 接口地址: /user/start/add/:id
 
@@ -558,7 +558,7 @@ http://leonandor.com/user/start/add/:id
 参数：无
 
 **3.3.2 删除用户收藏：**
-http://leonandor.com/user/start/remove/:id
+http://api.leonandor.com:8081/user/start/remove/:id
 
 接口地址: /user/start/remove/:id
 
@@ -569,7 +569,7 @@ http://leonandor.com/user/start/remove/:id
 参数：无
 
 **3.3.2 用户收藏列表：**
-http://leonandor.com/user/start/list
+http://api.leonandor.com:8081/user/start/list
 
 接口地址: /user/start/list
 
@@ -581,7 +581,7 @@ http://leonandor.com/user/start/list
 
 ### 三、搜索接口
 
-**文章搜索：** http://leonandor.com/travel/post/search
+**文章搜索：** http://api.leonandor.com:8081/travel/post/search
 
 接口地址: /post/search
 
@@ -594,9 +594,9 @@ http://leonandor.com/user/start/list
 ### 四、用户对话接口
 
 **用户私聊对话：**
-    http://leonandor.com/travel/user/chat
+    http://api.leonandor.com:8081/travel/user/chat
 
 ### 五、推荐接口
 
 **用户文章推荐：**
-    http://leonandor.com/travel/post/recommand
+    http://api.leonandor.com:8081/travel/post/recommand
