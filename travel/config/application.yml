@@ -9,12 +9,11 @@ mysql:
   loc: Asia/Shanghai
 
 wx:
-  appID: wx477cc96f24a1a742
-  appSecret: a66881199b407098b40090f3ad6f7216
+  appID: 
+  appSecret: 
 
 baidu:
   ak: ""
-  region: 汕头
-
+  region: 
 admin:
   token: ""
