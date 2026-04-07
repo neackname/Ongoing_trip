@@ -3,8 +3,8 @@ server:
 mysql:
   host: 127.0.0.1
   port: 3306
-  root: root
-  password: hwqq1220
+  root:
+  password: 
   database: travel_database
   loc: Asia/Shanghai
 
@@ -15,5 +15,6 @@ wx:
 baidu:
   ak: ""
   region: 
+
 admin:
   token: ""
